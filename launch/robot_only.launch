@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+	<!-- Create a world -->
+	<include file="$(find gazebo_ros)/launch/empty_world.launch">
+		<arg name="paused" default="true" />
+		<arg name="use_sim_time" default="true" />
+		<arg name="gui" value="true"/>
+		<arg name="headless" default="false" />
+		<arg name="debug" default="false" />
+	</include>
+	
+	<!-- Spawn a robot with a laser -->
+	<param name="robot_description" command="$(find xacro)/xacro $(find diplom)/urdf/pioneer3dx.xacro"/>
+	<node name="spawn_model" pkg="gazebo_ros" type="spawn_model" args="-urdf -param robot_description -model p3dx" output="screen"/>
+	
+	<node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+	<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+	
+</launch>
