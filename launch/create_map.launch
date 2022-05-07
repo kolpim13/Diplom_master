@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+	
+	<node pkg="diplom" type="create_map.py" name="map_creater" output="screen"/>
+	
+</launch>

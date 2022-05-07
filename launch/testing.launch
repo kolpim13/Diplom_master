@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
 	
-	<node pkg="diplom" type="scan_to_csv.py" name="logger" output="screen"/>
+	<!-- <node pkg="diplom" type="scan_to_csv.py" name="logger" output="screen"/> -->
+	<!-- <node pkg="diplom" type="create_map.py" name="map_creater" output="screen"/> -->
+	<node pkg="diplom" type="localization.py" name="robot_localization" output="screen"/>
 	
 </launch>

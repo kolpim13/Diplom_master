@@ -3,9 +3,11 @@
 	<!-- Create a world -->
 	<include file="$(find gazebo_ros)/launch/empty_world.launch">
 		<arg name="world_name" value="worlds/willowgarage.world"/>
+		<!-- <arg name="world_name" value="worlds/cafe.world"/> -->
+		<!-- <arg name="world_name" value="worlds/kitchen.world"/> -->
 		<arg name="paused" default="false" />
 		<arg name="use_sim_time" default="true" />
-		<arg name="gui" value="true"/>
+		<arg name="gui" value="false"/>
 		<arg name="headless" default="false" />
 		<arg name="debug" default="false" />
 	</include>
@@ -14,8 +16,10 @@
 	<param name="robot_description" command="$(find xacro)/xacro $(find diplom)/urdf/pioneer3dx.xacro"/>
 	<node name="spawn_model" pkg="gazebo_ros" type="spawn_model" output="screen" 
 				args="-urdf -param robot_description -model p3dx
-				-x 0 -y 0 -z 0
+				-x 0 -y 0 -z 0.01
 				-R 0 -P 0 -Y 0" />
+				
+	<!-- <node pkg="diplom" type="localization.py" name="robot_localization" output="screen"/> -->
 	
 	<!-- Prev one -->
 	<!-- <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" /> -->
