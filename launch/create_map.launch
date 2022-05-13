@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
 	
-	<node pkg="diplom" type="create_map.py" name="map_creater" output="screen"/>
+	<!-- <param name="model_to_move" type="str" value="liadr" /> -->
+	<!-- <param name="laser_topic_to_read" type="str" value="/laser/scan" /> -->
+	<node pkg="diplom" type="create_map.py" name="map_creater" output="screen" />
 	
 </launch>
