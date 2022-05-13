@@ -6,7 +6,7 @@ import math
 from sensor_msgs.msg import LaserScan
 
 # Variables
-PATH_TO_FILE = "/home/maks/catkin_ws/src/diplom/records/map1.json"
+PATH_TO_FILE = "/home/maks/catkin_ws/src/diplom/records/map2.json"
 
 # Functions
 def laser_topic_read():
@@ -43,33 +43,34 @@ if __name__ == '__main__':
     rate = rospy.Rate(1)
 
     while not rospy.is_shutdown():
-        aver_range = [0 for i in range(1000)]
-        for i in range(20):
-            (distances, range_min, range_max) = laser_topic_read()
-            #for j in range(1000):
-            #    aver_range[j] = aver_range[j] + distances[j]
-            aver_range = [aver_range[j] + distances[j] for j in range(1000)]
-            rospy.sleep(0.2)
-        aver_range = [aver_range[j] / 20 for j in range(1000)]
+        #aver_range = [0 for i in range(1000)]
+        #for i in range(20):
+        #    (distances, range_min, range_max) = laser_topic_read()
+        #    aver_range = [aver_range[j] + distances[j] for j in range(1000)]
+        #    rospy.sleep(0.2)
+        #aver_range = [aver_range[j] / 20 for j in range(1000)]
+        #histogram = compress_laser_data(aver_range, range_min, range_max, 60)
 
-        histogram = compress_laser_data(aver_range, range_min, range_max, 60)
-        rospy.loginfo(histogram)
+        (distances, range_min, range_max) = laser_topic_read()
+        histogram = compress_laser_data(distances, range_min, range_max, 60)
+
+        #rospy.loginfo(histogram)
         #rospy.loginfo(distances)
 
-        #pos = None
-        #prob_estimation = 1.7976931348623157e+308
+        pos = None
+        prob_estimation = 1.7976931348623157e+308
 
-        #jsonfile = open(PATH_TO_FILE, 'r')
-        #all_lines = jsonfile.readlines()
-        #jsonfile.close()
+        jsonfile = open(PATH_TO_FILE, 'r')
+        all_lines = jsonfile.readlines()
+        jsonfile.close()
 
-        #for line in all_lines:
-        #    json_line = json.loads(line)
-        #    hist_i = json_line['hist']
-        #    estim = compare_histograms_absoluteValue(histogram, hist_i)
-        #    if estim < prob_estimation:
-        #        prob_estimation = estim
-        #        pos = json_line['pos']
+        for line in all_lines:
+            json_line = json.loads(line)
+            hist_i = json_line['hist']
+            estim = compare_histograms_absoluteValue(histogram, hist_i)
+            if estim < prob_estimation:
+                prob_estimation = estim
+                pos = json_line['pos']
 
-        #rospy.loginfo("Current position: x = %.2f, y = %.2f, phi = %.2f", pos[0], pos[1], pos[2])
+        rospy.loginfo("Current position: x = %.2f, y = %.2f, phi = %.2f", pos[0], pos[1], pos[2])
         rate.sleep()

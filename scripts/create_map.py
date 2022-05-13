@@ -11,7 +11,9 @@ from sensor_msgs.msg import LaserScan
 # Variables
 pub = None
 robot_state = None
-PATH_TO_FILE = "/home/maks/catkin_ws/src/diplom/records/map1.json"
+PATH_TO_FILE = "/home/maks/catkin_ws/src/diplom/records/map2.json"
+model_to_move = None
+laser_topic_to_read = None
 
 # Functions
 def laser_topic_read():
@@ -49,26 +51,29 @@ def robot_move_on(x: float, y: float):
 def append_to_file(file_path, pos, distances, compressed):
     with open(PATH_TO_FILE, 'a') as jsonfile:
         json.dump({"pos": pos, "hist": compressed}, jsonfile)
-        #json.dump({"pos": pos, "dist": distances, "hist": compressed}, jsonfile)
         jsonfile.write(str('\n'))
 
 def get_real_robot_pos():
     robot_pose_topic_name = ""
     gms = rospy.ServiceProxy('/gazebo/get_model_state', GetModelState)
-    robot_pose = gms("p3dx", "")
+    robot_pose = gms("lidar", "")
     real_x = robot_pose.pose.position.x
     real_y = robot_pose.pose.position.y
     return (real_x, real_y)
 
 if __name__ == '__main__':
     rospy.init_node('map_creater')
-    rate = rospy.Rate(0.2)
+
+    #model_to_move = rospy.get_param("model_to_move", "liadr")
+    #laser_topic_to_read = rospy.get_param("laser_topic_to_read", "/laser/scan")
+
+    rate = rospy.Rate(0.01)
 
     robot_state = ModelState()
     pub = rospy.Publisher('/gazebo/set_model_state', ModelState, queue_size = 1)
     
     # Robot state adjust
-    robot_state.model_name = 'p3dx'
+    robot_state.model_name = 'lidar'
     robot_state.reference_frame = 'willowgarage'
     #robot_state.reference_frame = 'cafe'
     robot_state.pose.position.z = 0.05
