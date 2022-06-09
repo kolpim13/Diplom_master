@@ -1,8 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-	
-	<!-- <param name="model_to_move" type="str" value="liadr" /> -->
-	<!-- <param name="laser_topic_to_read" type="str" value="/laser/scan" /> -->
-	<node pkg="diplom" type="create_map.py" name="map_creater" output="screen" />
+	<node pkg="diplom" type="create_map.py" name="map_creater" output="screen">
+		<param name="map_name" value="map_willowgarage_10_11" type="str" />
+		<param name="gazebo_model_name" value="lidar" type="str" />
+		<param name="reference_frame" value="willowgarage" type="str" />
+		<param name="pos_x_begin" value="10.0" type="double"/>
+		<param name="pos_y_begin" value="10.0" type="double"/>
+		<param name="pos_x_end" value="11.0" type="double"/>
+		<param name="pos_y_end" value="11.0" type="double"/>
+		<param name="lowRes_step" value="0.5" type="double"/>
+		<param name="highRes_step" value="0.1" type="double"/>
+		<param name="laser_min" value="0.0" type="double"/>
+		<param name="laser_max" value="20.0" type="double"/>
+	</node>
 	
 </launch>
+
+<!-- x: [0 - 55] -->
+<!-- y: [0 - 45] -->
