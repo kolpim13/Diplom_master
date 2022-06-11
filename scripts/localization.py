@@ -15,20 +15,18 @@ from sensor_msgs.msg import LaserScan
 def laser_topic_read():
     laser_topic_name = "/laser/scan"
     laser = rospy.wait_for_message(laser_topic_name, LaserScan)
-    #distances = [round(item, 5) for item in laser.ranges]
     distances = np.array(laser.ranges)
     return distances
 
-def find_neighbors(pos, step_x, step_y):
-    top = (pos[0], round(pos[1] - step_y, 1), pos[2])
-    right = (round(pos[0] + step_x, 1), pos[1], pos[2])
-    bot = (pos[0], round(pos[1] + step_y, 1), pos[2])
-    left = (round(pos[0] - step_x, 1), pos[1], pos[2])
-
-    top_right = (round(pos[0] + step_x, 1), round(pos[1] - step_y, 1), pos[2])
-    bot_right = (round(pos[0] + step_x, 1), round(pos[1] + step_y, 1), pos[2])
-    bot_left = (round(pos[0] - step_x, 1), round(pos[1] + step_y, 1), pos[2])
-    top_left = (round(pos[0] - step_x, 1), round(pos[1] - step_y, 1), pos[2])
+def find_neighbors(highRes_index):
+    top = 
+    right = 
+    bot = 
+    left = 
+    top_right = 
+    bot_right = 
+    bot_left =
+    top_left =
 
     return (top, right, bot, left, top_right, bot_right, bot_left, top_left)
 #=======================================================================================#
@@ -78,21 +76,70 @@ def match_pos_absolute(hist1, hist2):
     return error
 #=======================================================================================#
 
+# SOLID POINT SEARCHING
 # Returns index of the best element in the arrays
 def find_pos_lowRes(hist):
     global map_pos_low, map_loc_low, LR_i
+    global func_match_pos
 
     min_error: float = 100.0
     best_index: int = 0
-    best_pos = None
 
     for i in range(LR_i):
-        error = match_pos_absolute(hist, map_pos_low[i])
+        error = func_match_pos(hist, map_pos_low[i])
         if min_error > error:
             min_error = error
             best_index = i
 
     return best_index
+
+# Returns aprroximated index that corresponds on the highRes map to the lowRes point
+def find_corresponding_point(lowRes_index):
+    global lowRes_x, lowRes_y, highRes_x, highRes_y, k
+
+    y_low = int(lowRes_index / lowRes_y)
+    x_low = int(lowRes_index % lowRes_x)
+    y_high = int(y_low * k)
+    x_high = int(x_low * k)
+    highRes_index = y_high * highRes_y + x_high
+
+    return highRes_index
+
+# Give a region og points to search around approximated point
+def find_region_to_search(highRes_index):
+    global highRes_x, highRes_y
+    
+    region = np.zeros(121, dtype=np.int32)
+
+    index = 0
+    for i in range(-5, 5+1):
+        for j in range(-5, 5+1):
+            region[index] = np.int32(highRes_index + highRes_y * i + j)
+            index += 1
+
+    return region
+
+# Find the best suited point from the region on the highRes map
+def find_pos_highRes(hist, region):
+    global map_pos_high, HR_i
+    global func_match_pos
+
+    min_error: float = 100.0
+    best_index: int = 0
+
+    for i in range(len(region)):
+        if region[i] < 0 or region[i] >= HR_i:
+            continue
+        error = func_match_pos(hist, map_pos_high[region[i]])
+        if min_error > error:
+            min_error = error
+            best_index = region[i]
+
+    return best_index
+#=======================================================================================#
+
+# APPROXIMATED POINT SEARCHING
+
 #=======================================================================================#
 
 # PRE PROCESSING
@@ -130,12 +177,21 @@ def buffer_map(path_to_map, total_lines):
             map_loc[index, :] = np.array(json_line["pos"], dtype=np.float32)
 
     return (map_pos, map_orient, map_loc)
+
+def cooficients_cacl():
+    k = LR / HR
+    lowRes_x = (x_end - x_begin) / LR + 1
+    lowRes_y = (y_end - y_begin) / LR + 1
+    highRes_x = (x_end - x_begin) / HR + 1
+    highRes_y = (y_end - y_begin) / HR + 1
+
+    return (lowRes_x, lowRes_y, highRes_x, highRes_y, k)
 #=======================================================================================#
 
 if __name__ == '__main__':
     # ROS 
     rospy.init_node("map_localization")
-    rate = rospy.Rate(0.5)
+    rate = rospy.Rate(1)
 
     # Ros parameters read
     rospy.loginfo("Read all parameters")
@@ -161,6 +217,8 @@ if __name__ == '__main__':
 
     # Read parameters from file
     (x_begin, y_begin, x_end, y_end, LR, HR, LR_i, HR_i) = read_descriptor()
+    # Calculate some needed parameters
+    (lowRes_x, lowRes_y, highRes_x, highRes_y, k) = cooficients_cacl()
 
     # Choose compression and matching functions
         # pos compression function
@@ -168,8 +226,8 @@ if __name__ == '__main__':
         func_compress_pos = compress_pos_absolute
     if func_compress_orient == "minInSector":
         func_compress_orient = compress_orient_minInSector
-    #if func_match_pos == "absolute":
-    #    func_match_pos = 
+    if func_match_pos == "absolute":
+        func_match_pos = match_pos_absolute
     #if func_match_orient == "absolute":
     #    func_match_orient = 
 
@@ -177,10 +235,7 @@ if __name__ == '__main__':
     rospy.loginfo("Buffer maps from files start")
     (map_pos_low, map_orient_low, map_loc_low) = buffer_map(PATH_TO_MAP_LOW_RES, LR_i)
     (map_pos_high, map_orient_high, map_loc_high) = buffer_map(PATH_TO_MAP_HIGH_RES, HR_i)
-    rospy.loginfo("Buffer maps from files done:")
-    rospy.loginfo(map_pos_low)
-    rospy.loginfo(map_orient_low)
-    rospy.loginfo(map_loc_low)
+    rospy.loginfo("Buffer maps from files done")
     rospy.loginfo("================================================================")
 
     # Main loop
@@ -195,16 +250,24 @@ if __name__ == '__main__':
         # Find best candidate on the low resolution map
         best_index_low = find_pos_lowRes(hist)
         best_low = np.array(map_loc_low[best_index_low])
-        rospy.loginfo("Best candidate on the low resolution map")
+        rospy.loginfo("Best candidate on the low resolution map:")
         rospy.loginfo("x_low = %.5f, y_high = %.5f", best_low[0], best_low[1])
 
-
+        # Find nearest points on the high resolution map according to the best low resolution candidate
+        highRes_corresponding_index = find_corresponding_point(best_index_low)
+        rospy.loginfo("highRes_corresponding_index = %d", highRes_corresponding_index)
+        region_to_search = find_region_to_search(highRes_corresponding_index)
         #rospy.loginfo("Nearest positions to check on the high resolution map")
-        #rospy.loginfo("Bla Bla")
+        #rospy.loginfo("region_to_search")
 
+        best_index_high = find_pos_highRes(hist, region_to_search)
+        best_high = np.array(map_loc_high[best_index_high])
+        rospy.loginfo("Best candidate on the high resolution map:")
+        rospy.loginfo("x_high = %.5f, y_high = %.5f", best_high[0], best_high[1])
 
-        #rospy.loginfo("Best candidate on the high resolution map")
-        #rospy.loginfo("x_high = %.5f, y_high = %.5f", best_high[0], best_high[1])
+        #rospy.loginfo("region:")
+        #rospy.loginfo(region_to_search)
+        rospy.loginfo("Best index low = %d, best index high = %d", best_index_low, best_index_high)
 
 
         #rospy.loginfo("Approximated position")
