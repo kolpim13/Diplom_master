@@ -5,7 +5,7 @@
 		<param name="map_name" value="map_willowgarage_10_11" type="str" />
 		<param name="gazebo_model_name" value="lidar" type="str" />
 		<param name="hist_pos_limits" value="60" type="int" />
-		<param name="hist_orient_limits" value="60" type="int" />
+		<param name="hist_orient_limits" value="20" type="int" />
 		<param name="laser_min" value="0.1" type="double" />
 		<param name="laser_max" value="20.0" type="double" />
 		<param name="laser_amount" value="1000" type="int" />

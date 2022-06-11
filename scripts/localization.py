@@ -18,17 +18,17 @@ def laser_topic_read():
     distances = np.array(laser.ranges)
     return distances
 
-def find_neighbors(highRes_index):
-    top = 
-    right = 
-    bot = 
-    left = 
-    top_right = 
-    bot_right = 
-    bot_left =
-    top_left =
+#def find_neighbors(highRes_index):
+#    top = 
+#    right = 
+#    bot = 
+#    left = 
+#    top_right = 
+#    bot_right = 
+#    bot_left =
+#    top_left =
 
-    return (top, right, bot, left, top_right, bot_right, bot_left, top_left)
+#    return (top, right, bot, left, top_right, bot_right, bot_left, top_left)
 #=======================================================================================#
 
 # COMPRESSION RAW DATA TO HISTOGRAMS
@@ -38,10 +38,8 @@ def compress_pos_absolute(data):
     range = range_max / hist_pos_limits
     hist = np.zeros(hist_pos_limits)
 
+    data = raw_data_preprocessing(data)
     for item in data:
-        item = 0.0 if item == float('-inf') else item
-        item = float(range_max) if item == float('inf') else item
-        item = item - 0.001 if item == range_max else item
         lim = math.floor(item / range)
         hist[lim] += 1 
 
@@ -53,13 +51,30 @@ def compress_orient_minInSector(data):
     range = range_max / hist_orient_limits
     hist = np.zeros(hist_orient_limits)
 
-    ranges_in_sector = laser_limits / hist_orient_limits
+    ranges_in_sector = int(laser_limits / hist_orient_limits)
     fr: int = 0
     to: int = 0
     for i in range(hist_orient_limits):
         to = round(ranges_in_sector * i)
         hist[i] = min(data[fr:to])
         fr = to
+
+    return hist
+
+def compress_orient_average(data):
+    global laser_limits, hist_orient_limits
+
+    hist = np.zeros(hist_orient_limits)
+    ranges_in_sector = int(laser_limits / hist_orient_limits)
+    
+    data = raw_data_preprocessing(data)
+    for i in range(hist_orient_limits):
+        index = int(i * ranges_in_sector)
+        aver = 0.0
+        for j in range(ranges_in_sector):
+            aver += data[index + j]
+        aver /= ranges_in_sector
+        hist[i] = aver
 
     return hist
 
@@ -76,7 +91,7 @@ def match_pos_absolute(hist1, hist2):
     return error
 #=======================================================================================#
 
-# SOLID POINT SEARCHING
+# SOLID POINT POS AND ORIENT SEARCHING
 # Returns index of the best element in the arrays
 def find_pos_lowRes(hist):
     global map_pos_low, map_loc_low, LR_i
@@ -114,7 +129,7 @@ def find_region_to_search(highRes_index):
     index = 0
     for i in range(-5, 5+1):
         for j in range(-5, 5+1):
-            region[index] = np.int32(highRes_index + highRes_y * i + j)
+            region[index] = np.int32(round(highRes_index + highRes_y * i + j))
             index += 1
 
     return region
@@ -136,6 +151,27 @@ def find_pos_highRes(hist, region):
             best_index = region[i]
 
     return best_index
+
+# Find the best suited orient for the chosen highRes point
+def find_orient_highRes(hist, highRes_index):
+    global hist_orient_limits, map_orient_high
+
+    degree_per_limit = 360.0 / hist_orient_limits
+    
+    best_index = 0
+    min_error = float('inf')
+    for shift in range(hist_orient_limits):
+        error = 0.0
+        for j in range(hist_orient_limits):
+            pos = j + shift
+            pos = pos - hist_orient_limits if pos >= hist_orient_limits else pos
+            error += abs(map_orient_high[highRes_index, pos] - hist[j])
+        if min_error > error:
+            min_error = error
+            best_index = shift
+    
+    orient_aprox = degree_per_limit * best_index
+    return orient_aprox
 #=======================================================================================#
 
 # APPROXIMATED POINT SEARCHING
@@ -173,7 +209,7 @@ def buffer_map(path_to_map, total_lines):
             json_line = json.loads(line)
             raw_data = json_line["raw_data"]
             map_pos[index, :] = func_compress_pos(raw_data)
-            # map_orient[index, :] = 
+            map_orient[index, :] = func_compress_orient(raw_data)
             map_loc[index, :] = np.array(json_line["pos"], dtype=np.float32)
 
     return (map_pos, map_orient, map_loc)
@@ -186,6 +222,14 @@ def cooficients_cacl():
     highRes_y = (y_end - y_begin) / HR + 1
 
     return (lowRes_x, lowRes_y, highRes_x, highRes_y, k)
+
+def raw_data_preprocessing(data):
+    for i in range(len(data)):
+        data[i] = 0.0 if data[i] == float('-inf') else data[i]
+        data[i] = float(range_max) if data[i] == float('inf') else data[i]
+        data[i] = data[i] - 0.001 if data[i] == range_max else data[i]
+
+    return data
 #=======================================================================================#
 
 if __name__ == '__main__':
@@ -224,8 +268,12 @@ if __name__ == '__main__':
         # pos compression function
     if func_compress_pos == "absolute":
         func_compress_pos = compress_pos_absolute
+        # orient compress function
     if func_compress_orient == "minInSector":
         func_compress_orient = compress_orient_minInSector
+    elif func_compress_orient == "average":
+        func_compress_orient = compress_orient_average
+        # pos match function
     if func_match_pos == "absolute":
         func_match_pos = match_pos_absolute
     #if func_match_orient == "absolute":
@@ -236,6 +284,7 @@ if __name__ == '__main__':
     (map_pos_low, map_orient_low, map_loc_low) = buffer_map(PATH_TO_MAP_LOW_RES, LR_i)
     (map_pos_high, map_orient_high, map_loc_high) = buffer_map(PATH_TO_MAP_HIGH_RES, HR_i)
     rospy.loginfo("Buffer maps from files done")
+    rospy.loginfo(map_orient_high)
     rospy.loginfo("================================================================")
 
     # Main loop
@@ -244,23 +293,24 @@ if __name__ == '__main__':
 
         # Read laser raw_data and convert them into histogram
         ranges = laser_topic_read()
-        hist = func_compress_pos(ranges)
-        rospy.loginfo("Raw data was read and compressed into histograms")
+        hist_pos = func_compress_pos(ranges)
+        hist_orient = func_compress_orient(ranges)
+        rospy.loginfo("Raw data was read and compressed into hist_posograms")
 
         # Find best candidate on the low resolution map
-        best_index_low = find_pos_lowRes(hist)
+        best_index_low = find_pos_lowRes(hist_pos)
         best_low = np.array(map_loc_low[best_index_low])
         rospy.loginfo("Best candidate on the low resolution map:")
         rospy.loginfo("x_low = %.5f, y_high = %.5f", best_low[0], best_low[1])
 
         # Find nearest points on the high resolution map according to the best low resolution candidate
         highRes_corresponding_index = find_corresponding_point(best_index_low)
-        rospy.loginfo("highRes_corresponding_index = %d", highRes_corresponding_index)
+        #rospy.loginfo("highRes_corresponding_index = %d", highRes_corresponding_index)
         region_to_search = find_region_to_search(highRes_corresponding_index)
         #rospy.loginfo("Nearest positions to check on the high resolution map")
         #rospy.loginfo("region_to_search")
 
-        best_index_high = find_pos_highRes(hist, region_to_search)
+        best_index_high = find_pos_highRes(hist_pos, region_to_search)
         best_high = np.array(map_loc_high[best_index_high])
         rospy.loginfo("Best candidate on the high resolution map:")
         rospy.loginfo("x_high = %.5f, y_high = %.5f", best_high[0], best_high[1])
@@ -269,13 +319,12 @@ if __name__ == '__main__':
         #rospy.loginfo(region_to_search)
         rospy.loginfo("Best index low = %d, best index high = %d", best_index_low, best_index_high)
 
+        orient = find_orient_highRes(hist_orient, best_index_high)
+        rospy.loginfo("Approximated orientation = %.5f", orient)
+
 
         #rospy.loginfo("Approximated position")
         #rospy.loginfo("x_approx = %.5f, y_approx = %.5f", approx[0], approx[1])
-
-
-        #rospy.loginfo("Orientation")
-        #rospy.loginfo("phi = %.5f", orient)
 
 
         rospy.loginfo("This step took %.3f", (time.time() - start_time))
